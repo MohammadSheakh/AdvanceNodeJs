@@ -40,11 +40,11 @@ export class AdvanceNodeJsController extends GenericController<
 
     //const worker = new Worker('./worker.ts')
 
-    const worker = new Worker(path.resolve(__dirname, 'worker.ts'))
+    const worker = new Worker(path.resolve(__dirname, 'worker.ts'));
 
-    // we can listen to the message event on the worker // listen to some specific event 
+    // we can listen to the message event on the worker // listen to some specific event
 
-    worker.on('message', (data:any) => {
+    worker.on('message', (data: any) => {
       sendResponse(res, {
         code: StatusCodes.OK,
         message: `this is blocking and result is ${data.counter}`,
@@ -52,7 +52,7 @@ export class AdvanceNodeJsController extends GenericController<
       });
     });
 
-    worker.on('error', (error:any) => {
+    worker.on('error', (error: any) => {
       sendResponse(res, {
         code: StatusCodes.NOT_FOUND,
         message: `this is blocking and an error occured ${error}`,
@@ -66,14 +66,58 @@ export class AdvanceNodeJsController extends GenericController<
     //   success: false,
     // });
   });
+
+  blocking_four_workers = catchAsync(async (req: Request, res: Response) => {
+    // as we declare promise in createWorker function ..
+    // so we need to take care of those
+    const workerPromises = [];
+    for (let i = 0; i < THREAD_COUNT; i++) {
+      workerPromises.push(createWorker(res));
+    }
+
+    const thread_results = await Promise.all(workerPromises);
+
+    const total = thread_results.reduce((acc: any, result: any) => {
+      return acc + result.counter;
+    }, 0);
+
+    sendResponse(res, {
+      code: StatusCodes.BAD_REQUEST,
+      message: `this is blocking_four-workers ${total} :: }`,
+      success: false,
+    });
+  });
+
   nonBlocking = catchAsync(async (req: Request, res: Response) => {
     console.log('this is non-blocking');
     sendResponse(res, {
       code: StatusCodes.BAD_REQUEST,
-      message: `this is non-blocking`,
+      message: `this is non-blocking which worker :: ${process.pid}`,
       success: false,
     });
   });
 
   // add more methods here if needed or override the existing ones
+}
+
+const THREAD_COUNT = 4;
+
+function createWorker(res: Response) {
+  return new Promise((resolve, reject) => {
+    // create a new worker
+    const worker = new Worker(path.resolve(__dirname, 'four-workers.ts'), {
+      // we need to send the data to ther worker ..
+      workerData: { thread_count: THREAD_COUNT },
+    });
+
+    // we are gonna create two event ..
+
+    worker.on('message', (data: any) => {
+      resolve(data);
+    });
+
+    worker.on('error', (error: any) => {
+      reject(error);
+    });
+  });
 }

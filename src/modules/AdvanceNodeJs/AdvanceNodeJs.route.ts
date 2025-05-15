@@ -35,6 +35,11 @@ router.route('/blocking').get(
   controller.blocking
 );
 
+router.route('/blocking_four_workers').get(
+  //auth('common'),
+  controller.blocking_four_workers
+);
+
 router.route('/non-blocking').get(
   //auth('common'),
   controller.nonBlocking
