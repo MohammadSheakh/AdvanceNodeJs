@@ -11,9 +11,35 @@ import sendResponse from '../../shared/sendResponse';
 import path from 'path';
 
 import { Worker } from 'worker_threads';
+import eventEmitter from './eventEmitter';
+//import EventEmitter from 'events';
+
+//const eventEmitter = new EventEmitter(); // functional way
 
 // let conversationParticipantsService = new ConversationParticipentsService();
 // let messageService = new MessagerService();
+
+const THREAD_COUNT = 4;
+
+function createWorker(res: Response) {
+  return new Promise((resolve, reject) => {
+    // create a new worker
+    const worker = new Worker(path.resolve(__dirname, 'four-workers.ts'), {
+      // we need to send the data to ther worker ..
+      workerData: { thread_count: THREAD_COUNT },
+    });
+
+    // we are gonna create two event ..
+
+    worker.on('message', (data: any) => {
+      resolve(data);
+    });
+
+    worker.on('error', (error: any) => {
+      reject(error);
+    });
+  });
+}
 
 export class AdvanceNodeJsController extends GenericController<
   typeof AdvanceNodeJs,
@@ -97,27 +123,25 @@ export class AdvanceNodeJsController extends GenericController<
     });
   });
 
-  // add more methods here if needed or override the existing ones
-}
+  eventEmitter = catchAsync(async (req: Request, res: Response) => {
+    const valueFromRequest = req.body.value;
 
-const THREAD_COUNT = 4;
+    console.log('this is eventEmitter');
+    const value = req.body.value;
 
-function createWorker(res: Response) {
-  return new Promise((resolve, reject) => {
-    // create a new worker
-    const worker = new Worker(path.resolve(__dirname, 'four-workers.ts'), {
-      // we need to send the data to ther worker ..
-      workerData: { thread_count: THREAD_COUNT },
-    });
+    if (value > 5) {
+      eventEmitter.emit('eventEmitForBiggerFive', value);
+    } else {
+      eventEmitter.emit('eventEmitForUnderFive', value);
+      // eventEmitter.emit('error', new Error('value is less than 5'));
+    }
 
-    // we are gonna create two event ..
-
-    worker.on('message', (data: any) => {
-      resolve(data);
-    });
-
-    worker.on('error', (error: any) => {
-      reject(error);
+    sendResponse(res, {
+      code: StatusCodes.OK,
+      message: `event emitter :: ${process.pid}`,
+      success: true,
     });
   });
+
+  // add more methods here if needed or override the existing ones
 }

@@ -45,6 +45,11 @@ router.route('/non-blocking').get(
   controller.nonBlocking
 );
 
+router.route('/eventEmitter').get(
+  //auth('common'),
+  controller.eventEmitter
+);
+
 router.route('/:id').get(
   // auth('common'),
   controller.getById
