@@ -26,7 +26,7 @@ async function main() {
     server = app.listen(port, config.backend.ip as string, () => {
       logger.info(
         colors.yellow(
-          `♻️  Application listening on port ${config.backend.baseUrl}/v1`
+          `♻️  Application listening on port ${config.backend.baseUrl}/v1 .. process id : ${process.pid}`
         )
       );
     });
