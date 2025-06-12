@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-
+import ytdl from "@distube/ytdl-core";
+import { stream, video_info } from "play-dl";
+import ffmpeg from "fluent-ffmpeg";
 import { GenericController } from '../__Generic/generic.controller';
 import { AdvanceNodeJs } from './AdvanceNodeJs.model';
 import { IAdvanceNodeJs } from './AdvanceNodeJs.interface';
@@ -142,6 +144,184 @@ export class AdvanceNodeJsController extends GenericController<
       success: true,
     });
   });
+
+  playYouTubeAudio = async (req: Request, res: Response): Promise<void> => {
+  try {
+
+    // Support both GET and POST requests
+    const params = req.method === 'GET' ? req.query : req.body;
+    const { url, hour = 0, minute = 0, second = 0 } = params;
+
+    // const { url, hour = 0, minute = 0, second = 0 } = req.body;
+    
+    // Validate URL presence
+    if (!url) {
+      res.status(400).json({
+        success: false,
+        message: "URL is required.",
+      });
+      return;
+    }
+
+    console.log("Received URL:", url);
+
+    // Basic URL validation for YouTube
+    const isValidYouTubeUrl = (url: string): boolean => {
+      try {
+        const urlObj = new URL(url);
+        return (
+          (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') && 
+          urlObj.pathname === '/watch' && 
+          urlObj.searchParams.has('v')
+        ) || (
+          (urlObj.hostname === 'youtu.be') &&
+          urlObj.pathname.length > 1
+        );
+      } catch {
+        return false;
+      }
+    };
+
+    if (!isValidYouTubeUrl(url)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid YouTube URL format.",
+      });
+      return;
+    }
+
+    // Validate time parameters
+    const hourNum = Number(hour);
+    const minuteNum = Number(minute);
+    const secondNum = Number(second);
+    
+    if (isNaN(hourNum) || isNaN(minuteNum) || isNaN(secondNum) || 
+        hourNum < 0 || minuteNum < 0 || secondNum < 0) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid time parameters.",
+      });
+      return;
+    }
+
+    const startSeconds = hourNum * 3600 + minuteNum * 60 + secondNum;
+    console.log("Start time:", startSeconds, "seconds");
+
+    // Try to get video info (optional for duration check)
+    let videoDuration: number | null = null;
+    try {
+      const info = await ytdl.getInfo(url);
+      videoDuration = parseInt(info.videoDetails.lengthSeconds);
+      console.log("Video duration:", videoDuration, "seconds");
+      
+      if (startSeconds >= videoDuration) {
+        res.status(400).json({
+          success: false,
+          message: `Start time (${startSeconds}s) exceeds video duration (${videoDuration}s).`,
+        });
+        return;
+      }
+    } catch (infoError) {
+      console.warn("Could not get video info, proceeding without duration check:", infoError.message);
+    }
+
+    // Check if response is already sent
+    if (res.headersSent) {
+      return;
+    }
+
+    // Set headers for streaming audio
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Transfer-Encoding", "chunked");
+    
+    console.log("Creating audio stream...");
+    
+    // Create audio stream with better options
+    const audioStream = ytdl(url, {
+      filter: "audioonly",
+      quality: "highestaudio",
+      highWaterMark: 1 << 25, // 32MB buffer
+    });
+
+    // Handle stream errors
+    audioStream.on('error', (streamError) => {
+      console.error("Audio stream error:", streamError);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: "Failed to create audio stream.",
+        });
+      }
+    });
+
+    // Handle client disconnect
+    const cleanup = () => {
+      console.log("Cleaning up stream...");
+      if (audioStream && !audioStream.destroyed) {
+        audioStream.destroy();
+      }
+    };
+
+    req.on("close", cleanup);
+    req.on("aborted", cleanup);
+
+    console.log("Starting FFmpeg processing...");
+
+    // Stream with ffmpeg
+    const ffmpegCommand = ffmpeg(audioStream)
+      .audioCodec("libmp3lame")
+      .audioBitrate(128)
+      .audioChannels(2)
+      .audioFrequency(44100)
+      .format("mp3")
+      .setStartTime(startSeconds)
+      .on("start", (commandLine) => {
+        console.log("FFmpeg started with command:", commandLine);
+      })
+      .on("progress", (progress) => {
+        console.log("Processing progress:", progress.percent + "% done");
+      })
+      .on("error", (err) => {
+        console.error("FFmpeg error:", err.message);
+        cleanup();
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: "Error processing audio stream.",
+          });
+        }
+      })
+      .on("end", () => {
+        console.log("Audio stream processing completed successfully");
+      });
+
+    // Handle response finish/close events
+    res.on('finish', () => {
+      console.log("Response finished");
+      cleanup();
+    });
+
+    res.on('close', () => {
+      console.log("Response closed");
+      cleanup();
+    });
+
+    // Pipe to response
+    ffmpegCommand.pipe(res, { end: true });
+
+  } catch (error) {
+    console.error("playYouTubeAudio Error:", error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: "Internal Server Error: " + error.message,
+      });
+    }
+  }
+};
+
 
   // add more methods here if needed or override the existing ones
 }

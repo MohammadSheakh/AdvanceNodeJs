@@ -25,8 +25,10 @@ if (cluster.isMaster) {
     colors.green(`Master process started, forking ${numCPUs} workers...`)
   );
 
+  //----------------------------------- numCPUs
+
   // Fork workers for each core
-  for (let i = 0; i < numCPUs; i++) {
+  for (let i = 0; i < 1; i++) {
     console.log('num of CPUs forking 🍴 numCPUs i', i);
     cluster.fork();
   }

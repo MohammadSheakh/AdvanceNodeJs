@@ -50,6 +50,11 @@ router.route('/eventEmitter').get(
   controller.eventEmitter
 );
 
+router.route('/yt').get(
+  //auth('common'),
+  controller.playYouTubeAudio
+);
+
 router.route('/:id').get(
   // auth('common'),
   controller.getById
