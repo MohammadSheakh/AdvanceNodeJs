@@ -281,7 +281,20 @@ export class AdvanceNodeJsController extends GenericController<
         console.log("FFmpeg started with command:", commandLine);
       })
       .on("progress", (progress) => {
-        console.log("Processing progress:", progress.percent + "% done");
+        console.log("Processing progress:", JSON.stringify(progress.timemark)," ✅");
+        // progress.percent
+        /****
+         * 
+         * (parameter) progress: {
+    frames: number;
+    currentFps: number;
+    currentKbps: number;
+    targetSize: number;
+    timemark: string;
+    percent?: number | undefined;
+}
+         * 
+         */
       })
       .on("error", (err) => {
         console.error("FFmpeg error:", err.message);
