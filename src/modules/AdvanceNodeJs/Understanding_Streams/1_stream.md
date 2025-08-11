@@ -8,6 +8,8 @@
 
 ##### 
 
+![alt text](image.png)
+
 ```
 buffers are core of the streams.
 
