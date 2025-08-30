@@ -90,25 +90,158 @@ memory usage: 50MB
 
 ```
 > ⏳ 27:09
+> 
+```ts
+➡️ // Steam Version
+const fs = require('node:fs/promises');
+/*
+🚩 🚫 Dont do it this way 
+Execution time : 263ms 💲 
+CPU uses : 100% (one core)
+memory usage: 200 MB
+*/
+(async() => {
+    console.time('writeMany')
+    const fileHandle = fs.open("test.txt", "w")
 
+    // create write stream of this file
+    const writeStream = fileHandle.createWriteStream();
+
+    // now write to this
+
+
+
+    for(let i = 0 ; i< 1000000; i++){
+
+        const buff = Buffer.from(`${i}`, "utf-8");
+
+        steam.write( buff /*our chunk.. it could be buffer or it could be string */)
+        
+    }
+    console.timeEnd('writeMany')
+})
+
+```
+
+Stream : an abstract interface for working with streaming data in Node.js
+
+Streaming Data :   Data flowing
+
+Encryption...
+> Read the data .. transform it .. write it to the destination .. 
 
 > ➡️ converting the string back to buffer and then we are gonna write that
 
+```ts
+➡️ // Lets Fix that memory issue 
+
+const fs = require('node:fs/promises');
+/*
+ 
+Execution time : around 300ms 💲 
+CPU uses : % (one core)
+memory usage: 50 MB
+*/
+(async() => {
+    console.time('writeMany')
+    const fileHandle = fs.open("test.txt", "w")
+
+    // create write stream of this file
+    const writeStream = fileHandle.createWriteStream();
+
+    // size of our internal buffer
+    console.log(stream.writableHighWaterMark)// by default 16kb
+
+    // to see how much of that buffer is filled
+    console.log(steam.writableLength)
+
+    // stream.write("this");
+    /// before write .. lets create buffer first
+    const buff = Buffer.from("string");
+    
+    stream.write(buff);
+    stream.write(buff);
+    stream.write(buff);
+
+    console.log(steam.writableLength)
+
+    // fill all my buffer with something
+    const buff2 = Buffer.alloc(1242134, "a"); // size, by which i want to fill
+
+    console.log(stream.write(buff2)) // it returns boolean ..
+    // if buffer is full then it return false..
+    // if false .. then we need to wait for to get emptied
+    // otherwise we keep pushing the data without clearing .. 
 
 
+    // how could we let the stream empty itself
+    stream.on("drain", () => {
+        // it means internal buffer is now empty .. we are safe to
+        // write more
+    })
 
+    // now write to this
 
+    
 
+    // for(let i = 0 ; i< 1000000; i++){
 
+    //     const buff = Buffer.from(`${i}`, "utf-8");
+    //     /****
+    //      * we need to check for this value ..
+    //      * if it returns false ..  it means .. we need to stop the
+    //      * loop .. and then listen for the drain event.. 
+    //      * after the drain event happens ... callback function
+    //      * we need to do something to continue on with this loop
+    //      * ******/
+        
+    //     steam.write( buff)
+        
+    // }
 
+    let i = 0;
+    const writeMany = () => {
+        while(i < 1000000 ){
+            const buff = Buffer.from(`${i}`, "utf-8");
 
+            // this is our last write
+            if(i === 999999){
+                return stream.end(buff) // it fire 'finish' event
+                stream.write(data)// error! as we end .. we cannot write
+            }
 
+            // if stream.write return false, stop the loop
+            if(!stream.write(buff)){
+                break;
+            }
 
+            i++;
+        }
+    }
 
+    writeMany()
 
+    // resume our loop once our stream's internal buffer is empty
+    stream.on("drain", () => {
+        //we need to stop writing .. we need to wait to internal buffer
+        // get emptied
 
+        // here.. we are sure .. our internal buffer is empty
 
+        writeMany()
+    })
 
+    stream.on("finish", () => {
+        console.timeEnd('writeMany')
+        fileHandle.close()   
+    })
+
+    
+})
+
+```
+
+///// 1:41:12
 
 
 
