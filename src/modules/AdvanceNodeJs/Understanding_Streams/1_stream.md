@@ -241,7 +241,9 @@ memory usage: 50 MB
 
 ```
 
-///// 1:41:12
+> ⏳ 1:41:12
+
+
 
 
 
@@ -250,16 +252,81 @@ memory usage: 50 MB
 
 ---
 
-[^@2] 
+[^@2] > ⏳ 1:52:30
 [^@2]:Readable_Streams ➡️
 ####  Readable_Streams 
  ➡️
 
 ##### 
 
+```ts 
+🚩 🚫 Dont do it this way 
+/*
+Execution time : s 💲 
+CPU uses : % (one core)
+memory usage: MB
+*/
+const fs = require('node:fs/promises')
+
+(() => {
+
+    const fileHandleRead = await fs.open("text.txt", "r");
+
+    const fileHandleWrite = await fs.open("dest.txt", "w");
+
+    const streamRead = fileHandleRead.createReadStream()
+    const streamWrite = fileHandleWrite.createWriteStream()
+
+
+
+    streamRead.on("data", (chunk) => {
+        streamWrite.write(chunk)
+
+        console.log("----------")
+        console.log(chunk)
+    })
+})()
 ```
 
+> ➡️  Lets Optimize this code ..
+
+```ts
+const fs = require('node:fs/promises')
+
+(() => {
+
+    const fileHandleRead = await fs.open("text.txt", "r");
+
+    const fileHandleWrite = await fs.open("dest.txt", "w");
+
+    const streamRead = fileHandleRead.createReadStream()
+    const streamWrite = fileHandleWrite.createWriteStream()
+
+    /**
+     * lets use that draining .. and try to optimize this code ..
+     * **/
+
+    streamRead.on("data", (chunk) => {
+        /////streamWrite.write(chunk)
+        // this function will return false .. if our buffer is full
+        // if it is full we should never ever write this stream again   
+        // we should drain this buffer.. then write again 
+
+        if(!streamWrite.write(chunk)){
+            streamRead.pause()
+        }
+
+        streamWrite.on("drain", () => {
+            streamRead.resume()
+        })
+         
+
+        console.log("----------")
+        console.log(chunk)
+    })
+})()
 ```
+
 >- [x] CheckBox to Keep Status
 
 ---
